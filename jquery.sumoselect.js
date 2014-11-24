@@ -10,6 +10,7 @@
 
 (function ($) {
     'namespace sumo';
+    var summoSelectUniqIdCounter = 0;
     $.fn.SumoSelect = function (options) {
 
         // var is_visible_default = false;
@@ -26,9 +27,10 @@
             outputAsCSV: false,           // true to POST data as csv ( false for Html control array ie. deafault select )
             csvSepChar: ',',              // seperation char in csv mode
             okCancelInMulti: false,       //display ok cancel buttons in desktop mode multiselect also. 
-            triggerChangeCombined: true   // im multi select mode wether to trigger change event on individual selection or combined selection.
+            triggerChangeCombined: true,  // im multi select mode wether to trigger change event on individual selection or combined selection.
+            uniqIdPrefix: 'sumo-select-'  // used when select element doesn't have any id tag already set
         }, options);
-
+        
         var ret = this.each(function () {
             var selObj = this; // the original select object.
             if (this.sumo || !$(this).is('select')) return; //already initialized
@@ -46,14 +48,21 @@
                 backdrop: '',
                 mob:false, // if to open device default select
                 Pstate: [],
+                uniqId: '',
 
                 createElems: function () {
                     var O = this;
                     O.E.wrap('<div class="SumoSelect">');
+                    O.uniqId = O.E.attr('id');
                     O.select = O.E.parent();
                     O.caption = $('<span></span>');
                     O.CaptionCont = $('<p class="CaptionCont"><label><i></i></label></p>').addClass('SlectBox').attr('style', O.E.attr('style')).prepend(O.caption);
                     O.select.append(O.CaptionCont);
+                    
+                    if(!O.uniqId) {
+                      O.uniqId = settings.uniqIdPrefix + "" + summoSelectUniqIdCounter++;
+                      O.E.attr('id', O.uniqId);
+                    }
 
                     if(O.E.attr('disabled'))O.select.addClass('disabled')
 
@@ -105,8 +114,10 @@
                 //## Adds it to UL at a given index (Last by default)
                 createLi: function (opt,i) {
                     var O = this;
-                    li = $('<li data-val="' + opt.val() + '"><label>' + opt.text() + '</label></li>');
-                    if (O.is_multi) li.prepend('<span><i></i></span>');
+                    var li_id =  O.uniqId +'-opt-' + (ul.children('li').length + 1);
+                    label = $('<label' + ( O.is_multi ? ' for="' + li_id +'"' : '' ) +'>' + opt.text() + '</label>')
+                    li = $('<li data-val="' + opt.val() + '"></li>').append(label);
+                    if (O.is_multi) li.prepend('<span><input type="checkbox" id="'+ li_id + '" /></span>');
 
                     if (opt.attr('selected'))
                         li.addClass('selected');
@@ -125,7 +136,7 @@
                     if (opt.attr('disabled') || opt.parent('optgroup').attr('disabled'))
                         li.addClass('disabled');
                     else
-                        O.onOptClick(li);
+                        O.onOptClick(label);
 
                     return li;
                 },
@@ -227,10 +238,11 @@
                     $(window).on('resize.sumo', function () { O.floatingList(); });
                 },
 
-                onOptClick: function (li) {
+                onOptClick: function (label) {
                     var O = this;
-                    li.click(function () {
-                        var li = $(this);
+                    label.click(function () {
+                        var label = $(this),
+                          li = label.parent('li');
                         txt = "";
                         if (O.is_multi) {
                             li.toggleClass('selected');
